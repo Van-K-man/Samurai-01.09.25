@@ -68,13 +68,18 @@ Packages/com.unity.collab-proxy/
 
 # ========== LARGE ASSET FILES ==========
 # Ignore large texture and model files
-Assets/Samurai/
-Assets/ARMSPack/
 *.fbx
 *.tga
 *.blend
 *.psd
 *.max
+*.hdr
+*.exr
+
+# Ignore large asset folders
+Assets/SkySeries Freebie/
+Assets/ARPGPack/Demos/
+Assets/Blender/
 
 # ========== OS SPECIFIC ==========
 # Windows
