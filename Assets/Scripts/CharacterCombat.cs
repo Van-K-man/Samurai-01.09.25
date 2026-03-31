@@ -1,23 +1,32 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class CharacterCombat : MonoBehaviour
 {
-    [SerializeField] private KeyCode attack01Key = KeyCode.LeftArrow;     // Attack 01
-    [SerializeField] private KeyCode attack02Key = KeyCode.RightArrow;    // Attack 02
-    [SerializeField] private KeyCode attack03Key = KeyCode.UpArrow;       // Attack 03
-    [SerializeField] private KeyCode attack04Key = KeyCode.DownArrow;     // Attack 04
-    [SerializeField] private KeyCode parryKey = KeyCode.Alpha0;           // Parry
+    [SerializeField] private Key attack01Key = Key.LeftArrow;     // Attack 01
+    [SerializeField] private Key attack02Key = Key.RightArrow;    // Attack 02
+    [SerializeField] private Key attack03Key = Key.UpArrow;       // Attack 03
+    [SerializeField] private Key attack04Key = Key.DownArrow;     // Attack 04
+    [SerializeField] private Key parryKey = Key.Digit0;                 // Parry
     [SerializeField] private float attack01Duration = 1.0f;
     [SerializeField] private float attack02Duration = 1.0f;
     [SerializeField] private float attack03Duration = 1.2f;
     [SerializeField] private float attack04Duration = 1.2f;
     [SerializeField] private float parryDuration = 1.0f;
 
+    [Header("Schaden")]
+    [SerializeField] private float attack01Damage = 15f;
+    [SerializeField] private float attack02Damage = 20f;
+    [SerializeField] private float attack03Damage = 25f;
+    [SerializeField] private float attack04Damage = 30f;
+    [SerializeField] private float attackRange = 2.5f;  // Reichweite des Angriffs
+
     public Animator animator;
     public bool useAnimator = true;
 
-    private bool isAttacking = false;
     private float lastAttackTime = 0f;
+    private float attackEndTime = 0f;  // Zeitpunkt, wann der Angriff endet
+    private string currentAttackType = "";  // Wird genutzt zur Schaden-Berechnung
 
     void Awake()
     {
@@ -28,6 +37,24 @@ public class CharacterCombat : MonoBehaviour
     void Update()
     {
         HandleAttackInput();
+        
+        // Angriff beenden, falls Zeit abgelaufen
+        if (attackEndTime > 0 && Time.time >= attackEndTime)
+        {
+            attackEndTime = 0f;
+        }
+    }
+
+    private bool IsKeyPressed(Key key, bool wasPressedThisFrame)
+    {
+        if (Keyboard.current == null)
+            return false;
+
+        var keyButton = Keyboard.current[key];
+        if (keyButton == null)
+            return false;
+
+        return wasPressedThisFrame ? keyButton.wasPressedThisFrame : keyButton.isPressed;
     }
 
     private void HandleAttackInput()
@@ -35,41 +62,41 @@ public class CharacterCombat : MonoBehaviour
         float timeSinceLastAttack = Time.time - lastAttackTime;
 
         // Parry-Input
-        if (Input.GetKeyDown(parryKey) && timeSinceLastAttack >= parryDuration)
+        if (IsKeyPressed(parryKey, true) && timeSinceLastAttack >= parryDuration)
         {
-            Debug.Log("Parry gedr�ckt");
+            Debug.Log("Parry gedrückt");
             TriggerParry();
             return;
         }
 
         // Attack03-Input
-        if (Input.GetKeyDown(attack03Key) && timeSinceLastAttack >= attack03Duration)
+        if (IsKeyPressed(attack03Key, true) && timeSinceLastAttack >= attack03Duration)
         {
-            Debug.Log("Attack03 gedr�ckt");
+            Debug.Log("Attack03 gedrückt");
             TriggerAttack03();
             return;
         }
 
         // Attack04-Input
-        if (Input.GetKeyDown(attack04Key) && timeSinceLastAttack >= attack04Duration)
+        if (IsKeyPressed(attack04Key, true) && timeSinceLastAttack >= attack04Duration)
         {
-            Debug.Log("Attack04 gedr�ckt");
+            Debug.Log("Attack04 gedrückt");
             TriggerAttack04();
             return;
         }
 
         // Attack01-Input (Linke Pfeiltaste)
-        if (Input.GetKeyDown(attack01Key) && timeSinceLastAttack >= attack01Duration)
+        if (IsKeyPressed(attack01Key, true) && timeSinceLastAttack >= attack01Duration)
         {
-            Debug.Log("Attack01 gedr�ckt");
+            Debug.Log("Attack01 gedrückt");
             TriggerAttack01();
             return;
         }
 
         // Attack02-Input (Rechte Pfeiltaste)
-        if (Input.GetKeyDown(attack02Key) && timeSinceLastAttack >= attack02Duration)
+        if (IsKeyPressed(attack02Key, true) && timeSinceLastAttack >= attack02Duration)
         {
-            Debug.Log("Attack02 gedr�ckt");
+            Debug.Log("Attack02 gedrückt");
             TriggerAttack02();
             return;
         }
@@ -77,45 +104,75 @@ public class CharacterCombat : MonoBehaviour
 
     private void TriggerAttack01()
     {
-        isAttacking = true;
         lastAttackTime = Time.time;
+        attackEndTime = Time.time + attack01Duration;  // ✅ Setze Ende des Angriffs
+        currentAttackType = "Attack01";
+        
         if (useAnimator && animator != null)
+        {
             animator.SetTrigger("Attack01");
+        }
+        
+        // Verursache Schaden auf Gegner im Bereich
+        ApplyAttackDamage(attack01Damage);
     }
 
     private void TriggerAttack02()
     {
-        isAttacking = true;
         lastAttackTime = Time.time;
+        attackEndTime = Time.time + attack02Duration;  // ✅ Setze Ende des Angriffs
+        currentAttackType = "Attack02";
+        
         if (useAnimator && animator != null)
+        {
             animator.SetTrigger("Attack02");
+        }
+        
+        // Verursache Schaden auf Gegner im Bereich
+        ApplyAttackDamage(attack02Damage);
     }
 
     private void TriggerAttack03()
     {
-        isAttacking = true;
         lastAttackTime = Time.time;
+        attackEndTime = Time.time + attack03Duration;  // ✅ Setze Ende des Angriffs
+        currentAttackType = "Attack03";
+        
         if (useAnimator && animator != null)
+        {
             animator.SetTrigger("Attack03");
+        }
+        
+        // Verursache Schaden auf Gegner im Bereich
+        ApplyAttackDamage(attack03Damage);
     }
 
     private void TriggerAttack04()
     {
-        isAttacking = true;
         lastAttackTime = Time.time;
+        attackEndTime = Time.time + attack04Duration;  // ✅ Setze Ende des Angriffs
+        currentAttackType = "Attack04";
+        
         if (useAnimator && animator != null)
+        {
             animator.SetTrigger("Attack04");
+        }
+        
+        // Verursache Schaden auf Gegner im Bereich
+        ApplyAttackDamage(attack04Damage);
     }
 
     private void TriggerParry()
     {
-        isAttacking = true;
         lastAttackTime = Time.time;
+        attackEndTime = Time.time + parryDuration;  // ✅ Setze Ende der Pariere
         if (useAnimator && animator != null)
+        {
             animator.SetTrigger("Parry");
+        }
     }
 
-    // Combo-Fenster �ffnen (per AnimationEvent)
+    // Combo-Fenster �ffnen (per AnimationEvent)
     public void OnAttack01ComboWindow()
     {
         // Combo-System entfernt
@@ -126,29 +183,40 @@ public class CharacterCombat : MonoBehaviour
         // Combo-System entfernt
     }
 
-    // Animation Events
-    public void OnAttack01End()
-    {
-        isAttacking = false;
-    }
+    // Animation Events (können für zukünftige Logik verwendet werden)
+    public void OnAttack01End() { }
+    public void OnAttack02End() { }
+    public void OnAttack03End() { }
+    public void OnAttack04End() { }
+    public void OnParryEnd() { }
 
-    public void OnAttack02End()
+    // Verursache Schaden auf alle Gegner im Angriffs-Bereich
+    private void ApplyAttackDamage(float damage)
     {
-        isAttacking = false;
-    }
+        Collider[] hitsInRange = Physics.OverlapSphere(transform.position, attackRange);
+        
+        foreach (Collider hit in hitsInRange)
+        {
+            // Ignoriere den Spieler selbst
+            if (hit.gameObject == gameObject)
+                continue;
 
-    public void OnAttack03End()
-    {
-        isAttacking = false;
-    }
+            // Prüfe auf Gegner (EnemyHealth)
+            EnemyHealth enemyHealth = hit.GetComponent<EnemyHealth>();
+            if (enemyHealth != null)
+            {
+                enemyHealth.NimmSchaden(damage);
+                Debug.Log($"[CharacterCombat] {currentAttackType} TREFFER auf {hit.gameObject.name}! Schaden: {damage}");
+                continue;
+            }
 
-    public void OnAttack04End()
-    {
-        isAttacking = false;
-    }
-
-    public void OnParryEnd()
-    {
-        isAttacking = false;
+            // Prüfe auf Spieler (PlayerHealth)
+            PlayerHealth playerHealth = hit.GetComponent<PlayerHealth>();
+            if (playerHealth != null)
+            {
+                playerHealth.NimmSchaden(damage);
+                Debug.Log($"[CharacterCombat] {currentAttackType} TREFFER auf {hit.gameObject.name}! Schaden: {damage}");
+            }
+        }
     }
 }

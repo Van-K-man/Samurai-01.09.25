@@ -1,16 +1,17 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 // Testcommit
 
 public class CharacterMovementOnly : MonoBehaviour
 {
-    public float moveSpeed = 5f;
+    public float moveSpeed = 5f; // Spieler-Laufgeschwindigkeit (units/Sekunde)
     public float rotationSpeed = 720f;
     public float moveThreshold = 0.1f;
-    public Animator animator;
-    public bool useAnimator = true;
 
     private Transform cachedTransform;
+    private CharacterController characterController;
+    private Animator animator;
     private Vector3 moveDirection;
     private float horizontalMovement;
     private float verticalMovement;
@@ -19,48 +20,63 @@ public class CharacterMovementOnly : MonoBehaviour
     void Awake()
     {
         cachedTransform = transform;
-        if (animator == null)
-            animator = GetComponent<Animator>();
+        characterController = GetComponent<CharacterController>();
+        animator = GetComponent<Animator>();
     }
 
     void Update()
     {
         HandleInputOptimized();
         HandleMovementOptimized();
-        if (useAnimator && animator != null)
-            UpdateAnimationsOptimized();
+        UpdateAnimations();
+    }
+
+
+    private bool IsKeyPressed(Key key)
+    {
+        if (Keyboard.current == null)
+            return false;
+        var keyButton = Keyboard.current[key];
+        return keyButton != null && keyButton.isPressed;
     }
 
     private void HandleInputOptimized()
     {
         horizontalMovement = 0f;
         verticalMovement = 0f;
-        if (Input.GetKey(KeyCode.W)) verticalMovement = 1f;
-        else if (Input.GetKey(KeyCode.S)) verticalMovement = -1f;
-        if (Input.GetKey(KeyCode.D)) horizontalMovement = 1f;
-        else if (Input.GetKey(KeyCode.A)) horizontalMovement = -1f;
+        if (IsKeyPressed(Key.W)) verticalMovement = 1f;
+        else if (IsKeyPressed(Key.S)) verticalMovement = -1f;
+        if (IsKeyPressed(Key.D)) horizontalMovement = 1f;
+        else if (IsKeyPressed(Key.A)) horizontalMovement = -1f;
         moveDirection.Set(horizontalMovement, 0f, verticalMovement);
         hasMovementInput = moveDirection.sqrMagnitude >= (moveThreshold * moveThreshold);
     }
 
     private void HandleMovementOptimized()
     {
-        Vector3 inputDirection = Vector3.zero;
-        if (Input.GetKey(KeyCode.W)) inputDirection += Vector3.forward;
-        if (Input.GetKey(KeyCode.S)) inputDirection += Vector3.back;
-        if (Input.GetKey(KeyCode.A)) inputDirection += Vector3.left;
-        if (Input.GetKey(KeyCode.D)) inputDirection += Vector3.right;
+        if (cachedTransform == null || characterController == null)
+            return;
 
-        if (inputDirection.sqrMagnitude > 0.01f)
+        // Bewegung wird nicht mehr durch IsAttacking blockiert
+
+        Vector3 inputDirection = moveDirection;
+        
+        if (inputDirection.sqrMagnitude > 0.001f)
         {
             inputDirection.Normalize();
-            // Immediate rotation, so the character looks directly in the new direction
             cachedTransform.rotation = Quaternion.LookRotation(inputDirection, Vector3.up);
+            
+            float effectiveSpeed = moveSpeed;
+            Vector3 movement = inputDirection * effectiveSpeed * Time.deltaTime;
+            characterController.Move(movement);
         }
     }
 
-    private void UpdateAnimationsOptimized()
+    private void UpdateAnimations()
     {
-        animator.SetFloat("Speed", moveDirection.magnitude);
+        if (animator != null)
+            animator.SetFloat("Speed", moveDirection.magnitude);
     }
+
+
 }

@@ -1,0 +1,4 @@
+repository "Samurai 01.09.25/Samurai 01.09.25@9072033628574@cloud"
+  path "/"
+    br "/main"
+    co "/main"

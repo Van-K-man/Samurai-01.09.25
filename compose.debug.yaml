@@ -1,0 +1,6 @@
+services:
+  samurai0109:
+    image: samurai0109
+    build:
+      context: .
+      dockerfile: ./Dockerfile

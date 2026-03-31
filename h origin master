@@ -1,0 +1,40 @@
+ .github/copilot-instructions.md                    |    4 [32m+[m
+ .gitignore                                         |  400 [32m++[m[31m------[m
+ .plastic/plastic.changes                           |  Bin [31m0[m -> [32m303449[m bytes
+ .plastic/plastic.selector                          |    4 [32m+[m
+ .plastic/plastic.wktree                            |  Bin [31m0[m -> [32m311745[m bytes
+ .plastic/plastic.workspace                         |    2 [32m+[m
+ .vsconfig                                          |    6 [32m+[m
+ Assets/Scripts/CharacterCombat.cs                  |   90 [32m+[m[31m-[m
+ Packages/manifest.json                             |   55 [32m++[m
+ Packages/packages-lock.json                        |  620 [32m++++++++++++[m
+ ProjectSettings/AudioManager.asset                 |   19 [32m+[m
+ ProjectSettings/ClusterInputManager.asset          |    6 [32m+[m
+ ProjectSettings/DynamicsManager.asset              |   34 [32m+[m
+ ProjectSettings/EditorBuildSettings.asset          |   23 [32m+[m
+ ProjectSettings/EditorSettings.asset               |   35 [32m+[m
+ ProjectSettings/GraphicsSettings.asset             |  173 [32m++++[m
+ ProjectSettings/InputManager.asset                 |  488 [32m++++++++++[m
+ ProjectSettings/MemorySettings.asset               |   35 [32m+[m
+ ProjectSettings/MultiplayerManager.asset           |    9 [32m+[m
+ ProjectSettings/NavMeshAreas.asset                 |   91 [32m++[m
+ ProjectSettings/NotificationsSettings.asset        |   42 [32m+[m
+ ProjectSettings/PackageManagerSettings.asset       |   36 [32m+[m
+ .../Packages/com.unity.ai.assistant/Settings.json  |    7 [32m+[m
+ .../MultiplayerRolesSettings.asset                 |   17 [32m+[m
+ ProjectSettings/Physics2DSettings.asset            |   56 [32m++[m
+ ProjectSettings/PresetManager.asset                |    7 [32m+[m
+ ProjectSettings/ProjectSettings.asset              | 1011 [32m++++++++++++++++++++[m
+ ProjectSettings/ProjectVersion.txt                 |    2 [32m+[m
+ ProjectSettings/QualitySettings.asset              |   79 [32m++[m
+ ProjectSettings/SceneTemplateSettings.json         |  126 [32m+++[m
+ ProjectSettings/ShaderGraphSettings.asset          |   19 [32m+[m
+ ProjectSettings/TagManager.asset                   |   43 [32m+[m
+ ProjectSettings/TimeManager.asset                  |    9 [32m+[m
+ ProjectSettings/URPProjectSettings.asset           |   16 [32m+[m
+ ProjectSettings/UnityConnectSettings.asset         |   36 [32m+[m
+ ProjectSettings/VFXManager.asset                   |   12 [32m+[m
+ ProjectSettings/VersionControlSettings.asset       |    8 [32m+[m
+ ProjectSettings/XRSettings.asset                   |   10 [32m+[m
+ ignore.conf                                        |   61 [32m++[m
+ 39 files changed, 3283 insertions(+), 408 deletions(-)
