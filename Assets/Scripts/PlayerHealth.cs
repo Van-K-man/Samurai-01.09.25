@@ -30,6 +30,7 @@ public class PlayerHealth : MonoBehaviour
     private Color originalSliderColor;
     private Coroutine flashCoroutine;
     private Animator animator;
+    private CharacterCombat characterCombat;
 
     /// <summary>Wird ausgelöst wenn der Spieler stirbt.</summary>
     public event Action OnTod;
@@ -41,6 +42,7 @@ public class PlayerHealth : MonoBehaviour
     {
         aktuellesLeben = maxLeben;
         animator = GetComponent<Animator>();
+        characterCombat = GetComponent<CharacterCombat>();
         
         if (healthBar != null)
         {
@@ -93,6 +95,13 @@ public class PlayerHealth : MonoBehaviour
     public void NimmSchaden(float schaden)
     {
         if (istTot) return;
+
+        // Unverwundbarkeit während Ausweichrolle
+        if (characterCombat != null && characterCombat.IsDodging)
+        {
+            Debug.Log("[PlayerHealth] Schaden geblockt: Ausweichrolle aktiv.");
+            return;
+        }
 
         aktuellesLeben -= schaden;
         aktuellesLeben = Mathf.Clamp(aktuellesLeben, 0, maxLeben);

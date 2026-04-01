@@ -19,6 +19,8 @@ public class EnemyAI : MonoBehaviour
     public float angriffSchaden = 15f;
     public float angriffCooldown = 1.5f;
     public float minAngriffsAbstand = 1.2f;  // Minimaler Abstand bevor NPC stoppt
+    [Range(10f, 180f)] public float angriffWinkel = 100f; // Trefferkegel vor dem NPC
+    public Transform angriffUrsprung; // Optional: Brust/Waffe als Ursprung
 
     [Header("Bewegung")]
     public float patrouilleRadius = 8f;
@@ -37,6 +39,7 @@ public class EnemyAI : MonoBehaviour
     private float angriffTimer = 0f;
     private float patrouilleTimer = 0f;
     private Vector3 startPosition;
+    private bool attackEventArmed = false;
 
     private enum Zustand { Patrouille, Verfolgen, Angreifen, Tot }
     private Zustand zustand = Zustand.Patrouille;
@@ -56,6 +59,9 @@ public class EnemyAI : MonoBehaviour
         health       = GetComponent<EnemyHealth>();
         startPosition = transform.position;
         zielPosition = startPosition;
+
+        if (angriffUrsprung == null)
+            angriffUrsprung = transform;
 
         // ✅ FindGameObjectWithTag nur wenn player nicht zugewiesen wurde
         if (player == null)
@@ -190,19 +196,44 @@ public class EnemyAI : MonoBehaviour
             transform.rotation = Quaternion.Slerp(transform.rotation, zielRotation, Time.deltaTime * rotationsgeschwindigkeit);
         }
 
-        // ✅ Hit-Check: Nur Schaden machen, wenn wirklich nah genug
+        // Angriff starten; Schaden wird im Animation Event ausgelöst
         angriffTimer += Time.deltaTime;
         if (angriffTimer >= angriffCooldown && distanzZumSpieler <= angriffweite + 0.3f)
         {
             angriffTimer = 0f;
+            attackEventArmed = true;
             anim.SetTrigger(PARAM_ANGRIFF);
+        }
+    }
 
-            PlayerHealth ph = player.GetComponent<PlayerHealth>();
-            if (ph != null)
-            {
-                ph.NimmSchaden(angriffSchaden);
-                Debug.Log($"[EnemyAI] TREFFER! Distanz: {distanzZumSpieler:F2} <= {angriffweite + 0.3f:F2}");
-            }
+    // Wird vom Animation Event aufgerufen
+    public void ApplyCurrentAttackDamage()
+    {
+        if (!attackEventArmed || zustand == Zustand.Tot)
+            return;
+
+        attackEventArmed = false;
+
+        if (player == null)
+            return;
+
+        float distanzZumSpieler = Vector3.Distance(transform.position, player.position);
+        Vector3 origin = angriffUrsprung != null ? angriffUrsprung.position : transform.position;
+        Vector3 toPlayer = player.position - origin;
+        toPlayer.y = 0f;
+        float angleToPlayer = toPlayer.sqrMagnitude > 0.0001f
+            ? Vector3.Angle(transform.forward, toPlayer.normalized)
+            : 180f;
+        bool playerImTrefferkegel = angleToPlayer <= angriffWinkel * 0.5f;
+
+        if (distanzZumSpieler > angriffweite + 0.3f || !playerImTrefferkegel)
+            return;
+
+        PlayerHealth ph = player.GetComponent<PlayerHealth>();
+        if (ph != null)
+        {
+            ph.NimmSchaden(angriffSchaden);
+            Debug.Log($"[EnemyAI] TREFFER! Distanz: {distanzZumSpieler:F2} | Winkel: {angleToPlayer:F1} <= {angriffWinkel * 0.5f:F1}");
         }
     }
 

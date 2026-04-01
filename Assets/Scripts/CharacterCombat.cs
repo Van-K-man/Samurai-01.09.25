@@ -20,7 +20,6 @@ public class CharacterCombat : MonoBehaviour
     public Key dodgeKey = Key.RightCtrl;      // Ausweichrolle
     [SerializeField] private float dodgeDuration = 0.6f;       // Animation
     [SerializeField] private float dodgeCooldown = 1.0f;       // Cooldown
-    [SerializeField] private float dodgeSpeed = 8f;            // Bewegungsgeschwindigkeit
 
     [Header("Schaden")]
     [SerializeField] private float attack01Damage = 15f;
@@ -28,6 +27,8 @@ public class CharacterCombat : MonoBehaviour
     [SerializeField] private float attack03Damage = 25f;
     [SerializeField] private float attack04Damage = 30f;
     [SerializeField] private float attackRange = 2.5f;  // Reichweite des Angriffs
+    [SerializeField, Range(10f, 180f)] private float attackAngle = 100f; // Trefferkegel vor dem Spieler
+    [SerializeField] private Transform attackOrigin; // Optional: z.B. Brust/Schwertposition
 
     private Animator animator;
     private bool useAnimator = true;
@@ -39,13 +40,17 @@ public class CharacterCombat : MonoBehaviour
     private bool isDodging = false;
     private float dodgeEndTime = 0f;
     private float lastDodgeTime = -10f;
-    private Vector3 dodgeDirection = Vector3.zero;
     private DodgeDirection currentDodgeDirection = DodgeDirection.None;
+
+    public bool IsDodging => isDodging;
 
     void Awake()
     {
         if (animator == null)
             animator = GetComponent<Animator>();
+
+        if (attackOrigin == null)
+            attackOrigin = transform;
 
         if (animator != null)
             animator.SetInteger("DodgeDirection", (int)DodgeDirection.None);
@@ -61,12 +66,8 @@ public class CharacterCombat : MonoBehaviour
             attackEndTime = 0f;
         }
 
-        // Während Ausweichrolle bewegen
-        if (isDodging && Time.time < dodgeEndTime)
-        {
-            transform.Translate(dodgeDirection * dodgeSpeed * Time.deltaTime, Space.World);
-        }
-        else if (isDodging && Time.time >= dodgeEndTime)
+        // Status der Ausweichrolle beenden
+        if (isDodging && Time.time >= dodgeEndTime)
         {
             isDodging = false;
             currentDodgeDirection = DodgeDirection.None;
@@ -166,9 +167,6 @@ public class CharacterCombat : MonoBehaviour
         {
             animator.SetTrigger("Attack01");
         }
-        
-        // Verursache Schaden auf Gegner im Bereich
-        ApplyAttackDamage(attack01Damage);
     }
 
     private void TriggerAttack02()
@@ -181,9 +179,6 @@ public class CharacterCombat : MonoBehaviour
         {
             animator.SetTrigger("Attack02");
         }
-        
-        // Verursache Schaden auf Gegner im Bereich
-        ApplyAttackDamage(attack02Damage);
     }
 
     private void TriggerAttack03()
@@ -196,9 +191,6 @@ public class CharacterCombat : MonoBehaviour
         {
             animator.SetTrigger("Attack03");
         }
-        
-        // Verursache Schaden auf Gegner im Bereich
-        ApplyAttackDamage(attack03Damage);
     }
 
     private void TriggerAttack04()
@@ -211,9 +203,6 @@ public class CharacterCombat : MonoBehaviour
         {
             animator.SetTrigger("Attack04");
         }
-        
-        // Verursache Schaden auf Gegner im Bereich
-        ApplyAttackDamage(attack04Damage);
     }
 
     private void TriggerParry()
@@ -250,14 +239,6 @@ public class CharacterCombat : MonoBehaviour
         dodgeEndTime = Time.time + dodgeDuration;
         currentDodgeDirection = direction;
 
-        // Bewegungsrichtung basierend auf Enum
-        dodgeDirection = direction switch
-        {
-            DodgeDirection.Forward => Vector3.forward,
-            DodgeDirection.Backward => Vector3.back,
-            _ => Vector3.zero
-        };
-
         if (useAnimator && animator != null)
         {
             animator.SetInteger("DodgeDirection", (int)direction);
@@ -276,7 +257,24 @@ public class CharacterCombat : MonoBehaviour
         // Combo-System entfernt
     }
 
-    // Animation Events (können für zukünftige Logik verwendet werden)
+    // Animation Event – Schadenszeitpunkt (im Animator-Clip setzen)
+
+    // Universelle Methode für geteilte Clips (z.B. Attack01/02 selber Clip)
+    public void ApplyCurrentAttackDamage()
+    {
+        float damage = currentAttackType switch
+        {
+            "Attack01" => attack01Damage,
+            "Attack02" => attack02Damage,
+            "Attack03" => attack03Damage,
+            "Attack04" => attack04Damage,
+            _ => 0f
+        };
+        if (damage > 0f)
+            ApplyAttackDamage(damage);
+    }
+
+    // Animation Events – Ende der Angriffs-Animationen
     public void OnAttack01End() { }
     public void OnAttack02End() { }
     public void OnAttack03End() { }
@@ -286,18 +284,30 @@ public class CharacterCombat : MonoBehaviour
     // Verursache Schaden auf alle Gegner im Angriffs-Bereich
     private void ApplyAttackDamage(float damage)
     {
-        Collider[] hitsInRange = Physics.OverlapSphere(transform.position, attackRange);
+        Vector3 origin = attackOrigin != null ? attackOrigin.position : transform.position;
+        Collider[] hitsInRange = Physics.OverlapSphere(origin, attackRange);
         
         foreach (Collider hit in hitsInRange)
         {
-            if (hit.gameObject == gameObject)
+            // Eigene Collider (auch Child-Collider) ignorieren
+            if (hit.transform.root == transform.root)
+                continue;
+
+            // Treffer nur im frontalen Kegel zulassen
+            Vector3 toTarget = hit.bounds.center - origin;
+            if (toTarget.sqrMagnitude <= 0.0001f)
+                continue;
+
+            float angleToTarget = Vector3.Angle(transform.forward, toTarget.normalized);
+            if (angleToTarget > attackAngle * 0.5f)
                 continue;
 
             // ✅ Kein Schaden wenn gerade am Dodgen
             if (isDodging)
                 continue;
 
-            EnemyHealth enemyHealth = hit.GetComponent<EnemyHealth>();
+            // Health kann auf dem Root/Parent liegen, während der Collider auf Child sitzt
+            EnemyHealth enemyHealth = hit.GetComponentInParent<EnemyHealth>();
             if (enemyHealth != null)
             {
                 enemyHealth.NimmSchaden(damage);
@@ -305,7 +315,7 @@ public class CharacterCombat : MonoBehaviour
                 continue;
             }
 
-            PlayerHealth playerHealth = hit.GetComponent<PlayerHealth>();
+            PlayerHealth playerHealth = hit.GetComponentInParent<PlayerHealth>();
             if (playerHealth != null)
             {
                 playerHealth.NimmSchaden(damage);

@@ -738,13 +738,16 @@ MonoBehaviour:
   attack03Duration: 1
   attack04Duration: 1
   parryDuration: 1
-  attack01Damage: 15
-  attack02Damage: 20
-  attack03Damage: 25
+  dodgeKey: 56
+  dodgeDuration: 1
+  dodgeCooldown: 1
+  attack01Damage: 10
+  attack02Damage: 10
+  attack03Damage: 20
   attack04Damage: 30
   attackRange: 2.5
-  animator: {fileID: 0}
-  useAnimator: 1
+  attackAngle: 160
+  attackOrigin: {fileID: 0}
 --- !u!114 &670242563
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1351,6 +1354,11 @@ PrefabInstance:
       propertyPath: m_Enabled
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 3359104721735517757, guid: 595b8c0fba7fa5b4b9d56a7a004845cf,
+        type: 3}
+      propertyPath: m_Avatar
+      value: 
+      objectReference: {fileID: 9000000, guid: 09116251d98ddb14a9fe8d3fe4a59816, type: 3}
     - target: {fileID: 3359104721735517757, guid: 595b8c0fba7fa5b4b9d56a7a004845cf,
         type: 3}
       propertyPath: m_Controller
@@ -4085,9 +4093,11 @@ MonoBehaviour:
   player: {fileID: 670242569}
   sichtweite: 15
   angriffweite: 2
-  angriffSchaden: 15
+  angriffSchaden: 10
   angriffCooldown: 1.5
   minAngriffsAbstand: 2
+  angriffWinkel: 80
+  angriffUrsprung: {fileID: 0}
   patrouilleRadius: 8
   patrouilleWartezeit: 3
   laufgeschwindigkeit: 1
