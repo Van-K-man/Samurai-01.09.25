@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+public enum DodgeDirection { Forward = 1, Backward = 2, None = -1 }
+
 public class CharacterCombat : MonoBehaviour
 {
     [SerializeField] private Key attack01Key = Key.LeftArrow;     // Attack 01
@@ -14,6 +16,12 @@ public class CharacterCombat : MonoBehaviour
     [SerializeField] private float attack04Duration = 1.2f;
     [SerializeField] private float parryDuration = 1.0f;
 
+    [Header("Ausweichrolle")]
+    public Key dodgeKey = Key.RightCtrl;      // Ausweichrolle
+    [SerializeField] private float dodgeDuration = 0.6f;       // Animation
+    [SerializeField] private float dodgeCooldown = 1.0f;       // Cooldown
+    [SerializeField] private float dodgeSpeed = 8f;            // Bewegungsgeschwindigkeit
+
     [Header("Schaden")]
     [SerializeField] private float attack01Damage = 15f;
     [SerializeField] private float attack02Damage = 20f;
@@ -21,17 +29,26 @@ public class CharacterCombat : MonoBehaviour
     [SerializeField] private float attack04Damage = 30f;
     [SerializeField] private float attackRange = 2.5f;  // Reichweite des Angriffs
 
-    public Animator animator;
-    public bool useAnimator = true;
+    private Animator animator;
+    private bool useAnimator = true;
 
     private float lastAttackTime = 0f;
     private float attackEndTime = 0f;  // Zeitpunkt, wann der Angriff endet
     private string currentAttackType = "";  // Wird genutzt zur Schaden-Berechnung
 
+    private bool isDodging = false;
+    private float dodgeEndTime = 0f;
+    private float lastDodgeTime = -10f;
+    private Vector3 dodgeDirection = Vector3.zero;
+    private DodgeDirection currentDodgeDirection = DodgeDirection.None;
+
     void Awake()
     {
         if (animator == null)
             animator = GetComponent<Animator>();
+
+        if (animator != null)
+            animator.SetInteger("DodgeDirection", (int)DodgeDirection.None);
     }
 
     void Update()
@@ -42,6 +59,19 @@ public class CharacterCombat : MonoBehaviour
         if (attackEndTime > 0 && Time.time >= attackEndTime)
         {
             attackEndTime = 0f;
+        }
+
+        // Während Ausweichrolle bewegen
+        if (isDodging && Time.time < dodgeEndTime)
+        {
+            transform.Translate(dodgeDirection * dodgeSpeed * Time.deltaTime, Space.World);
+        }
+        else if (isDodging && Time.time >= dodgeEndTime)
+        {
+            isDodging = false;
+            currentDodgeDirection = DodgeDirection.None;
+            if (useAnimator && animator != null)
+                animator.SetInteger("DodgeDirection", (int)DodgeDirection.None);
         }
     }
 
@@ -60,6 +90,30 @@ public class CharacterCombat : MonoBehaviour
     private void HandleAttackInput()
     {
         float timeSinceLastAttack = Time.time - lastAttackTime;
+        bool isAttackActive = attackEndTime > 0 && Time.time < attackEndTime;
+
+        // ✅ Dodge-Input (BLOCKIERT wenn Angriff läuft)
+        if (!isAttackActive && IsKeyPressed(dodgeKey, true) && (Time.time - lastDodgeTime) >= dodgeCooldown && !isDodging)
+        {
+            DodgeDirection direction = GetDodgeDirection();
+            // Kein Richtungsinput: Standard rückwärts ausweichen
+            if (direction == DodgeDirection.None)
+                direction = DodgeDirection.Backward;
+
+            Debug.Log($"Dodge gedrückt: {direction}");
+            TriggerDodge(direction);
+            return;
+        }
+
+        // Diagnose-Log: Warum wird Dodge blockiert?
+        if (IsKeyPressed(dodgeKey, true))
+        {
+            Debug.Log($"[Dodge BLOCKIERT] isAttackActive={isAttackActive} | Cooldown verbleibend={dodgeCooldown - (Time.time - lastDodgeTime):F2}s | isDodging={isDodging} | animator={animator != null} | useAnimator={useAnimator}");
+        }
+
+        // Wenn Angriff aktiv: keine neuen Angriffe möglich
+        if (isAttackActive)
+            return;
 
         // Parry-Input
         if (IsKeyPressed(parryKey, true) && timeSinceLastAttack >= parryDuration)
@@ -172,6 +226,45 @@ public class CharacterCombat : MonoBehaviour
         }
     }
 
+    private DodgeDirection GetDodgeDirection()
+    {
+        if (Keyboard.current == null)
+            return DodgeDirection.None;
+
+        bool wPressed = Keyboard.current.wKey.isPressed;
+        bool aPressed = Keyboard.current.aKey.isPressed;
+        bool sPressed = Keyboard.current.sKey.isPressed;
+        bool dPressed = Keyboard.current.dKey.isPressed;
+
+        // WASD alle → Forward, keine → None (wird zu Backward)
+        if (wPressed || aPressed || sPressed || dPressed)
+            return DodgeDirection.Forward;
+
+        return DodgeDirection.None;
+    }
+
+    private void TriggerDodge(DodgeDirection direction)
+    {
+        isDodging = true;
+        lastDodgeTime = Time.time;
+        dodgeEndTime = Time.time + dodgeDuration;
+        currentDodgeDirection = direction;
+
+        // Bewegungsrichtung basierend auf Enum
+        dodgeDirection = direction switch
+        {
+            DodgeDirection.Forward => Vector3.forward,
+            DodgeDirection.Backward => Vector3.back,
+            _ => Vector3.zero
+        };
+
+        if (useAnimator && animator != null)
+        {
+            animator.SetInteger("DodgeDirection", (int)direction);
+            animator.SetTrigger("DodgeTrigger");
+        }
+    }
+
     // Combo-Fenster �ffnen (per AnimationEvent)
     public void OnAttack01ComboWindow()
     {
@@ -197,11 +290,13 @@ public class CharacterCombat : MonoBehaviour
         
         foreach (Collider hit in hitsInRange)
         {
-            // Ignoriere den Spieler selbst
             if (hit.gameObject == gameObject)
                 continue;
 
-            // Prüfe auf Gegner (EnemyHealth)
+            // ✅ Kein Schaden wenn gerade am Dodgen
+            if (isDodging)
+                continue;
+
             EnemyHealth enemyHealth = hit.GetComponent<EnemyHealth>();
             if (enemyHealth != null)
             {
@@ -210,7 +305,6 @@ public class CharacterCombat : MonoBehaviour
                 continue;
             }
 
-            // Prüfe auf Spieler (PlayerHealth)
             PlayerHealth playerHealth = hit.GetComponent<PlayerHealth>();
             if (playerHealth != null)
             {
