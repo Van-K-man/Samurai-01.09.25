@@ -31,6 +31,10 @@ public class EnemyAI : MonoBehaviour
     [Header("Rotation")]
     public float rotationsgeschwindigkeit = 5f;
 
+    [Header("Separation")]
+    public float separationsRadius = 1.5f;
+    public float separationsStaerke = 3f;
+
     private Animator anim;
     private EnemyHealth health;
     private Vector3 aktuelleGeschwindigkeit = Vector3.zero;
@@ -54,6 +58,11 @@ public class EnemyAI : MonoBehaviour
         if (rb == null)
         {
             Debug.LogError("[EnemyAI] Kein Rigidbody gefunden! Bitte Rigidbody-Komponente hinzufügen.");
+        }
+        else
+        {
+            // Nur Y-Rotation erlauben, X und Z einfrieren– nhält NPCs aufrecht
+            rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
         }
         anim         = GetComponent<Animator>();
         health       = GetComponent<EnemyHealth>();
@@ -95,6 +104,9 @@ public class EnemyAI : MonoBehaviour
             case Zustand.Angreifen:    Angreifen();      break;
         }
 
+        // Separation: Abstand zu anderen NPCs einhalten
+        aktuelleGeschwindigkeit += BerechneSeperationskraft();
+
         // Bewegung erfolgt jetzt in FixedUpdate via Rigidbody
         anim.SetFloat(PARAM_SPEED, aktuelleGeschwindigkeit.magnitude);
     }
@@ -104,13 +116,43 @@ public class EnemyAI : MonoBehaviour
         if (zustand == Zustand.Tot) return;
         if (rb != null)
         {
-            // Nur bewegen, wenn Geschwindigkeit gesetzt ist
+            // angularVelocity nullen – Rigidbody soll sich nicht drehen
+            rb.angularVelocity = Vector3.zero;
+
+            // Verhindere, dass NPCs auf andere Objekte hochklettern
+            Vector3 vel = rb.linearVelocity;
+            if (vel.y > 0.1f)
+            {
+                vel.y = 0f;
+                rb.linearVelocity = vel;
+            }
+
+            // Nur horizontal bewegen – Y-Position bleibt durch Physik bestimmt
             if (aktuelleGeschwindigkeit.sqrMagnitude > 0.0001f)
             {
                 Vector3 zielPos = rb.position + aktuelleGeschwindigkeit * Time.fixedDeltaTime;
+                zielPos.y = rb.position.y;
                 rb.MovePosition(zielPos);
             }
         }
+    }
+
+    Vector3 BerechneSeperationskraft()
+    {
+        Vector3 separation = Vector3.zero;
+        Collider[] nachbarn = Physics.OverlapSphere(transform.position, separationsRadius);
+        foreach (Collider nachbar in nachbarn)
+        {
+            if (nachbar.gameObject == gameObject) continue;
+            if (!nachbar.TryGetComponent<EnemyAI>(out _)) continue;
+
+            Vector3 wegVektor = transform.position - nachbar.transform.position;
+            wegVektor.y = 0f; // Nur horizontal abstoßen, nicht nach oben/unten
+            float distanz = wegVektor.magnitude;
+            if (distanz > 0.001f)
+                separation += wegVektor.normalized * (separationsRadius - distanz) / separationsRadius;
+        }
+        return separation * separationsStaerke;
     }
 
     void Patrouillieren()
@@ -239,17 +281,46 @@ public class EnemyAI : MonoBehaviour
 
     void HandleTod()
     {
+        if (zustand == Zustand.Tot) return; // Doppelaufruf verhindern
         zustand = Zustand.Tot;
         aktuelleGeschwindigkeit = Vector3.zero;
 
+        // Root Motion aktivieren – OnAnimatorMove übernimmt die Y-Kontrolle
         if (anim != null)
+        {
+            anim.applyRootMotion = true;
             anim.SetTrigger(PARAM_TOT);
+        }
 
-        Collider col = GetComponent<Collider>();
-        if (col != null) col.enabled = false;
+        // Velocity nullen, kinematisch machen
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector3.zero;
+            rb.isKinematic = true;
+        }
 
         // NPC bleibt in der Szene liegen und wird nicht zerstört
         // Destroy(gameObject, 3f);
+    }
+
+    // Übernimmt Root Motion manuell: XZ-Bewegung erlaubt, Y wird auf den Boden geklemt
+    void OnAnimatorMove()
+    {
+        if (anim == null) return;
+
+        if (zustand == Zustand.Tot)
+        {
+            Vector3 pos = anim.rootPosition;
+            // Y via Raycast auf die tatsächliche Bodenoberfläche setzen
+            if (Physics.Raycast(transform.position + Vector3.up * 0.5f, Vector3.down, out RaycastHit hit, 3f))
+                pos.y = hit.point.y;
+            else
+                pos.y = transform.position.y;
+
+            transform.position = pos;
+            transform.rotation = anim.rootRotation;
+        }
+        // Im lebenden Zustand: kein Root Motion – Bewegung läuft über FixedUpdate
     }
 
 
